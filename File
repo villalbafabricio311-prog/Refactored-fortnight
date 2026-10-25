@@ -1,0 +1,277 @@
+--[[
+=====================================================================
+  ARQUERO MÓVIL — SCRIPT PARA DELTA EXECUTOR
+=====================================================================
+  • Se puede re-ejecutar sin duplicar botones (se limpia solo).
+  • HUD táctil de arquero + modo AUTO.
+  • Aviso al cargar con notificación de Delta.
+  • Para apagarlo: ejecuta el mismo script o usa getgenv().ArqueroDelta.Limpiar()
+=====================================================================
+]]
+
+-- Anti-duplicados: si ya estaba activo, lo limpio antes de continuar
+if getgenv().ArqueroDelta and getgenv().ArqueroDelta.Limpiar then
+	pcall(getgenv().ArqueroDelta.Limpiar)
+end
+
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local jugador = Players.LocalPlayer
+
+--======================== CONFIGURACIÓN ========================
+local CONFIG = {
+	NombresPelota    = {"balon", "pelota", "ball", "soccerball", "futbol"},
+	BuscarNoAnclados = true,
+
+	DiveLateral      = 13,
+	DiveAltura       = 4,
+	DuracionDive     = 0.32,
+	Recuperacion     = 0.30,
+	Cooldown         = 0.22,
+	WalkSpeedNormal  = 16,
+
+	AssistAimado     = true,
+	DistanciaAsist   = 22,
+
+	DistanciaAuto    = 26,
+	VelocidadMinima  = 5,
+	Refresco         = 0.4,
+
+	Debug            = false,   -- true si quieres ver logs en consola
+}
+
+--========================== ESTADO ==========================
+local Personaje, Humano, Raiz
+local Pelota
+local AutoOn = false
+local ultimoDive = 0
+local tBusqueda = 0
+local conexiones = {}
+local gui
+
+--========================== UTILIDADES ==========================
+local function log(...) if CONFIG.Debug then print("[ARQUERO]", ...) end end
+
+-- Notificación compatible con Delta (con fallback)
+local function notificar(titulo, texto)
+	pcall(function()
+		if Delta and Delta.Notification then
+			local ok = pcall(Delta.Notification, {Title = titulo, Content = texto, Duration = 3})
+			if not ok then pcall(Delta.Notification, titulo, texto, 3) end
+		end
+	end)
+end
+
+local function refs()
+	Personaje = jugador.Character
+	if Personaje then
+		Humano = Personaje:FindFirstChildOfClass("Humanoid")
+		Raiz   = Personaje:FindFirstChild("HumanoidRootPart")
+	end
+end
+
+local function libre()
+	return os.clock() - ultimoDive >= CONFIG.Cooldown
+end
+
+local function EsPelota(obj)
+	if not obj:IsA("BasePart") or obj.Anchored then return false end
+	local n = string.lower(obj.Name)
+	for _, x in ipairs(CONFIG.NombresPelota) do
+		if string.find(n, x, 1, true) then return true end
+	end
+	return CONFIG.BuscarNoAnclados
+end
+
+local function BuscarPelota()
+	if not Raiz then return nil end
+	local mejor, mejorDist = nil, 260
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if EsPelota(obj) and not obj:IsDescendantOf(Personaje) then
+			local d = (obj.Position - Raiz.Position).Magnitude
+			if d < mejorDist then mejor, mejorDist = obj, d end
+		end
+	end
+	return mejor
+end
+
+--========================== ACCIONES ==========================
+local function posicionar(cframe, dur)
+	if not Raiz or not Humano then return end
+	Humano.WalkSpeed  = 0
+	Humano.AutoRotate = false
+	local info = TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local tw = TweenService:Create(Raiz, info, {CFrame = cframe})
+	tw:Play()
+	tw.Completed:Connect(function()
+		task.wait(CONFIG.Recuperacion)
+		if Humano then
+			Humano.WalkSpeed  = CONFIG.WalkSpeedNormal
+			Humano.AutoRotate = true
+		end
+	end)
+end
+
+-- lado: -1 izq | 0 centro | 1 der   altura: 0 abajo | 1 arriba
+local function Dive(lado, altura)
+	refs()
+	if not Raiz or not Humano or not libre() then return end
+	ultimoDive = os.clock()
+
+	local derecha = Raiz.CFrame.RightVector
+	local arriba  = Vector3.new(0, 1, 0)
+
+	local destinoPos = Raiz.Position
+		+ derecha * (CONFIG.DiveLateral * lado)
+		+ arriba  * (CONFIG.DiveAltura  * altura)
+
+	if CONFIG.AssistAimado and Pelota and Pelota.Parent then
+		local rel = Pelota.Position - Raiz.Position
+		if rel.Magnitude <= CONFIG.DistanciaAsist then
+			local ladoPelota = math.sign(rel:Dot(derecha))
+			if lado == 0 or ladoPelota == lado then
+				local objetivo = Vector3.new(
+					Pelota.Position.X,
+					Pelota.Position.Y + CONFIG.DiveAltura * altura,
+					Pelota.Position.Z
+				)
+				destinoPos = destinoPos:Lerp(objetivo, 0.6)
+			end
+		end
+	end
+
+	local destino = CFrame.lookAt(destinoPos, destinoPos + Raiz.CFrame.LookVector)
+	posicionar(destino, CONFIG.DuracionDive)
+	log("Dive", lado, altura)
+end
+
+local function Rush()
+	refs()
+	if not Raiz or not Humano or not libre() then return end
+	ultimoDive = os.clock()
+	local destinoPos
+	if Pelota and Pelota.Parent then
+		destinoPos = Vector3.new(Pelota.Position.X, Raiz.Position.Y, Pelota.Position.Z)
+	else
+		destinoPos = Raiz.Position + Raiz.CFrame.LookVector * 14
+	end
+	posicionar(CFrame.lookAt(destinoPos, destinoPos + Raiz.CFrame.LookVector), 0.25)
+end
+
+local function Centrar()
+	refs()
+	if not Raiz or not Humano then return end
+	Humano.WalkSpeed  = CONFIG.WalkSpeedNormal
+	Humano.AutoRotate = true
+	if Pelota and Pelota.Parent then
+		local mirar = Vector3.new(Pelota.Position.X, Raiz.Position.Y, Pelota.Position.Z)
+		Raiz.CFrame = CFrame.lookAt(Raiz.Position, mirar)
+	end
+end
+
+--========================== AUTO-ATAJADA ==========================
+local function actualizarAuto(dt)
+	if not AutoOn then return end
+	refs()
+	if not Raiz or not Humano then return end
+
+	tBusqueda += dt
+	if tBusqueda >= CONFIG.Refresco or not (Pelota and Pelota.Parent) then
+		tBusqueda = 0
+		Pelota = BuscarPelota()
+	end
+	local balon = Pelota
+	if not balon then return end
+
+	local pos = balon.Position
+	local vel = balon.AssemblyLinearVelocity
+	local dist = (pos - Raiz.Position).Magnitude
+	local dir = Raiz.Position - pos
+	local viene = vel.Magnitude > 0.1 and dir.Magnitude > 0.1 and vel:Dot(dir.Unit) > 0
+
+	if dist <= CONFIG.DistanciaAuto and viene and vel.Magnitude >= CONFIG.VelocidadMinima then
+		local rel  = pos - Raiz.Position
+		local lado = math.sign(rel:Dot(Raiz.CFrame.RightVector))
+		local altura = (rel.Y > 2) and 1 or 0
+		Dive(lado, altura)
+	end
+end
+
+--========================== HUD TÁCTIL ==========================
+local pg = jugador:WaitForChild("PlayerGui")
+gui = Instance.new("ScreenGui")
+gui.Name = "ArqueroDelta"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = pg
+
+local function crearBoton(texto, tamaño, posicion, anchor, color, callback)
+	local b = Instance.new("TextButton")
+	b.Size = tamaño
+	b.Position = posicion
+	b.AnchorPoint = anchor
+	b.BackgroundColor3 = color
+	b.BackgroundTransparency = 0.15
+	b.Text = texto
+	b.TextColor3 = Color3.fromRGB(255, 255, 255)
+	b.TextScaled = true
+	b.Font = Enum.Font.GothamBold
+	b.AutoButtonColor = true
+	b.Parent = gui
+
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0.5, 0); c.Parent = b
+	local s = Instance.new("UIStroke"); s.Color = Color3.fromRGB(255, 255, 255)
+	s.Thickness = 2; s.Transparency = 0.4; s.Parent = b
+
+	b.MouseButton1Down:Connect(function()
+		b.BackgroundTransparency = 0
+		task.delay(0.08, function() b.BackgroundTransparency = 0.15 end)
+		callback()
+	end)
+	return b
+end
+
+local BL = Vector2.new(0, 1)
+local BR = Vector2.new(1, 1)
+local BC = Vector2.new(0.5, 1)
+local A  = Vector2.new(0.5, 0)
+
+crearBoton("◀", UDim2.new(0, 120, 0, 120), UDim2.new(0, 20, 1, -100), BL, Color3.fromRGB(30, 90, 200), function() Dive(-1, 0) end)
+crearBoton("↖", UDim2.new(0, 100, 0, 100), UDim2.new(0, 150, 1, -190), BL, Color3.fromRGB(20, 150, 190), function() Dive(-1, 1) end)
+
+crearBoton("▶", UDim2.new(0, 120, 0, 120), UDim2.new(1, -20, 1, -100), BR, Color3.fromRGB(30, 90, 200), function() Dive(1, 0) end)
+crearBoton("↗", UDim2.new(0, 100, 0, 100), UDim2.new(1, -150, 1, -190), BR, Color3.fromRGB(20, 150, 190), function() Dive(1, 1) end)
+
+crearBoton("↑", UDim2.new(0, 95, 0, 95), UDim2.new(0.5, 0, 1, -120), BC, Color3.fromRGB(30, 170, 90), function() Dive(0, 1) end)
+crearBoton("⚡", UDim2.new(0, 95, 0, 95), UDim2.new(0.5, 0, 1, -230), BC, Color3.fromRGB(220, 130, 20), function() Rush() end)
+crearBoton("CENTRAR", UDim2.new(0, 130, 0, 45), UDim2.new(0.5, 0, 1, -345), BC, Color3.fromRGB(90, 90, 100), function() Centrar() end)
+
+local botonAuto = crearBoton("AUTO: OFF", UDim2.new(0, 150, 0, 48), UDim2.new(0.5, 0, 0, 12), A, Color3.fromRGB(150, 40, 40), function()
+	AutoOn = not AutoOn
+	if AutoOn then
+		botonAuto.Text = "AUTO: ON"
+		botonAuto.BackgroundColor3 = Color3.fromRGB(30, 160, 70)
+	else
+		botonAuto.Text = "AUTO: OFF"
+		botonAuto.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+	end
+end)
+
+--========================== INICIO / LIMPIEZA ==========================
+local conexion = RunService.Heartbeat:Connect(actualizarAuto)
+table.insert(conexiones, conexion)
+
+local function limpiar()
+	if gui then gui:Destroy() end
+	for _, c in ipairs(conexiones) do pcall(function() c:Disconnect() end) end
+	conexiones = {}
+	getgenv().ArqueroDelta = nil
+	print("[ARQUERO] Limpiado.")
+end
+
+getgenv().ArqueroDelta = { Limpiar = limpiar }
+
+notificar("Arquero Móvil", "Cargado. Botones activos ⚽")
+print("[ARQUERO] Listo.")
