@@ -1,0 +1,240 @@
+local function guiParent()
+    local ok, hui = pcall(gethui)
+    if ok and hui then return hui end
+    return game:GetService("CoreGui")
+end
+
+local Screen = Instance.new("ScreenGui")
+Screen.Name = "FUT_Hub"
+Screen.ResetOnSpawn = false
+Screen.IgnoreGuiInset = true
+Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local okp = pcall(function() Screen.Parent = guiParent() end)
+if not okp or not Screen.Parent then
+    Screen.Parent = LP:WaitForChild("PlayerGui")
+end
+
+local function new(class, props, parent)
+    local i = Instance.new(class)
+    for k, v in pairs(props) do i[k] = v end
+    if parent then i.Parent = parent end
+    return i
+end
+
+local Main = new("Frame", {
+    Name = "Main",
+    Size = UDim2.new(0, 232, 0, 0),
+    Position = UDim2.new(0, 20, 0.5, -190),
+    BackgroundColor3 = COL.BG,
+    BorderSizePixel = 0,
+    Active = true,
+    AutomaticSize = Enum.AutomaticSize.Y,
+}, Screen)
+new("UICorner", { CornerRadius = UDim.new(0, 10) }, Main)
+new("UIStroke", { Color = Color3.fromRGB(38, 41, 52), Thickness = 1, Transparency = 0.3 }, Main)
+
+local Header = new("TextButton", {
+    Size = UDim2.new(1, 0, 0, 34),
+    BackgroundColor3 = COL.PANEL,
+    Text = "",
+    AutoButtonColor = false,
+    BorderSizePixel = 0,
+}, Main)
+new("UICorner", { CornerRadius = UDim.new(0, 10) }, Header)
+
+new("TextLabel", {
+    Size = UDim2.new(1, -60, 1, 0),
+    Position = UDim2.new(0, 12, 0, 0),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold,
+    Text = "FUT  •  HUB",
+    TextSize = 13,
+    TextColor3 = COL.TEXT,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Active = false,
+}, Header)
+
+local MinBtn = new("TextButton", {
+    Size = UDim2.new(0, 24, 0, 20),
+    Position = UDim2.new(1, -30, 0, 7),
+    BackgroundColor3 = COL.OFF,
+    Text = "–",
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextColor3 = COL.TEXT,
+    AutoButtonColor = true,
+    BorderSizePixel = 0,
+}, Header)
+new("UICorner", { CornerRadius = UDim.new(0, 6) }, MinBtn)
+
+local Content = new("Frame", {
+    Size = UDim2.new(1, 0, 0, 0),
+    Position = UDim2.new(0, 0, 0, 34),
+    BackgroundTransparency = 1,
+    AutomaticSize = Enum.AutomaticSize.Y,
+}, Main)
+new("UIPadding", {
+    PaddingTop = UDim.new(0, 6),
+    PaddingBottom = UDim.new(0, 10),
+    PaddingLeft = UDim.new(0, 10),
+    PaddingRight = UDim.new(0, 10),
+}, Content)
+new("UIListLayout", {
+    Padding = UDim.new(0, 2),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, Content)
+
+local function section(text)
+    return new("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 20),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Text = text,
+        TextSize = 11,
+        TextColor3 = COL.SUB,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, Content)
+end
+
+local function makeToggle(label, default, cb)
+    local row = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 28),
+        BackgroundTransparency = 1,
+    }, Content)
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -44, 1, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.Gotham,
+        Text = label,
+        TextSize = 13,
+        TextColor3 = COL.TEXT,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, row)
+
+    local btn = new("TextButton", {
+        Size = UDim2.new(0, 38, 0, 20),
+        Position = UDim2.new(1, -38, 0.5, -10),
+        BackgroundColor3 = COL.OFF,
+        Text = "",
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+    }, row)
+    new("UICorner", { CornerRadius = UDim.new(1, 0) }, btn)
+
+    local knob = new("Frame", {
+        Size = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new(0, 2, 0.5, -8),
+        BackgroundColor3 = Color3.fromRGB(232, 234, 240),
+        BorderSizePixel = 0,
+    }, btn)
+    new("UICorner", { CornerRadius = UDim.new(1, 0) }, knob)
+
+    local state = default
+    local function render()
+        TweenService:Create(btn, TweenInfo.new(0.15),
+            { BackgroundColor3 = state and COL.ACCENT or COL.OFF }):Play()
+        TweenService:Create(knob, TweenInfo.new(0.15),
+            { Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8) }):Play()
+    end
+    render()
+
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        render()
+        cb(state)
+    end)
+end
+
+local function makeSlider(label, min, max, default, cb)
+    local row = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 34),
+        BackgroundTransparency = 1,
+    }, Content)
+
+    new("TextLabel", {
+        Size = UDim2.new(1, -44, 0, 16),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.Gotham,
+        Text = label,
+        TextSize = 12,
+        TextColor3 = COL.TEXT,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, row)
+
+    local val = new("TextLabel", {
+        Size = UDim2.new(0, 44, 0, 16),
+        Position = UDim2.new(1, -44, 0, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Text = tostring(default),
+        TextSize = 12,
+        TextColor3 = COL.ACCENT,
+        TextXAlignment = Enum.TextXAlignment.Right,
+    }, row)
+
+    local track = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 6),
+        Position = UDim2.new(0, 0, 0, 22),
+        BackgroundColor3 = COL.OFF,
+        BorderSizePixel = 0,
+    }, row)
+    new("UICorner", { CornerRadius = UDim.new(1, 0) }, track)
+
+    local ratio = (default - min) / (max - min)
+
+    local fill = new("Frame", {
+        Size = UDim2.new(ratio, 0, 1, 0),
+        BackgroundColor3 = COL.ACCENT,
+        BorderSizePixel = 0,
+    }, track)
+    new("UICorner", { CornerRadius = UDim.new(1, 0) }, fill)
+
+    local knob = new("Frame", {
+        Size = UDim2.new(0, 12, 0, 12),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(ratio, 0, 0.5, 0),
+        BackgroundColor3 = Color3.fromRGB(240, 242, 248),
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    }, track)
+    new("UICorner", { CornerRadius = UDim.new(1, 0) }, knob)
+
+    local hit = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 24),
+        Position = UDim2.new(0, 0, 0, 13),
+        BackgroundTransparency = 1,
+        ZIndex = 3,
+    }, row)
+
+    local dragging = false
+
+    local function setFromX(x)
+        local rel = clamp((x - hit.AbsolutePosition.X) / hit.AbsoluteSize.X, 0, 1)
+        local v = math.floor(min + (max - min) * rel + 0.5)
+        val.Text = tostring(v)
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        knob.Position = UDim2.new(rel, 0, 0.5, 0)
+        cb(v)
+    end
+
+    hit.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            setFromX(input.Position.X)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            setFromX(input.Position.X)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
