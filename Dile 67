@@ -1,0 +1,25 @@
+task.spawn(function()
+    while task.wait(1) do
+        local found
+        for _, b in ipairs(CollectionService:GetTagged("Ball")) do
+            if b:IsA("BasePart") and b.Parent then found = b; break end
+        end
+        if not found then
+            for _, o in ipairs(workspace:GetDescendants()) do
+                if o:IsA("BasePart") and o.Name:lower():find("ball") then
+                    found = o; break
+                end
+            end
+        end
+        Ball = found
+
+        if C.GK and (not MyGoal or not MyGoal.Parent) then
+            pcall(function() refreshStand() end)
+        end
+    end
+end)
+
+local function getBall()
+    if Ball and Ball.Parent then return Ball end
+    return nil
+end
