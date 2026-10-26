@@ -1,0 +1,56 @@
+local HAS_AXES = pcall(function() return Enum.Axes.XZ end)
+
+local function configureLunge(lv)
+    lv.RelativeTo = Enum.ActuatorRelativeTo.World
+
+    if HAS_AXES then
+        -- Cliente moderno: controla solo X/Z, Y totalmente libre
+        lv.MaxForce = math.huge
+        local ok = pcall(function() lv.MaxAxes = Enum.Axes.XZ end)
+        if not ok then
+            HAS_AXES = false
+        end
+    end
+
+    if not HAS_AXES then
+        -- Fallback: límite de fuerza por eje (Y = 0 => gravedad intacta)
+        local ok = pcall(function()
+            lv.ForceLimitMode = Enum.ForceLimitMode.PerAxis
+            lv.MaxForce = Vector3.new(math.huge, 0, math.huge)
+        end)
+        if not ok then
+            lv.MaxForce = math.huge
+        end
+    end
+end
+
+local function setupChar(c)
+    Char = c
+    HRP  = c:WaitForChild("HumanoidRootPart", 10)
+    Hum  = c:WaitForChild("Humanoid", 10)
+    if not HRP or not Hum then return end
+
+    OrigSize = HRP.Size
+
+    if Lunge and Lunge.Parent then Lunge:Destroy() end
+
+    local att = Instance.new("Attachment")
+    att.Name = "FUT_Att"
+    att.Parent = HRP
+
+    Lunge = Instance.new("LinearVelocity")
+    Lunge.Name        = "FUT_Lunge"
+    Lunge.Attachment0 = att
+    Lunge.Enabled     = false
+    Lunge.Parent      = HRP
+    configureLunge(Lunge)
+
+    task.wait(0.4)
+    applySize()
+end
+
+LP.CharacterAdded:Connect(function(c)
+    task.wait(0.4)
+    setupChar(c)
+end)
+if LP.Character then setupChar(LP.Character) end
