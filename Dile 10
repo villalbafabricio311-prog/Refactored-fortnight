@@ -1,0 +1,15 @@
+local lead   = clamp(dist / math.max(C.DivePower, 1), 0.04, 0.35)
+            local target = bp + bv * lead
+            local to     = target - pp
+
+            if to.Magnitude > 0.1 then
+                local u   = to.Unit
+                local dir = Vector3.new(u.X, 0, u.Z)
+                if dir.Magnitude < 0.05 then dir = u end
+                Lunge.VectorVelocity = dir.Unit * C.DivePower
+            else
+                Lunge.VectorVelocity = Vector3.zero
+            end
+            return
+        end
+    end
