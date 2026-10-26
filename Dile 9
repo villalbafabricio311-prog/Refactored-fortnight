@@ -1,0 +1,27 @@
+RunService.Heartbeat:Connect(function()
+    if not HRP or not HRP.Parent or not Lunge or not Lunge.Parent then return end
+
+    if not C.GK then
+        Lunge.Enabled = false
+        return
+    end
+
+    Lunge.Enabled = true
+    local pp = HRP.Position
+    local ball = getBall()
+
+    -- ---- DIVE ----
+    if ball and C.AutoDive then
+        local bp   = ball.Position
+        local bv   = ball.AssemblyLinearVelocity
+        local dist = (bp - pp).Magnitude
+
+        if dist <= C.DiveRange then
+
+            -- salto si el balón viene alto
+            if (bp.Y - pp.Y) > 4.5
+               and Hum.FloorMaterial ~= Enum.Material.Air
+               and (os.clock() - lastJump) > 0.6 then
+                lastJump = os.clock()
+                Hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
