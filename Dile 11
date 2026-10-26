@@ -1,0 +1,12 @@
+if C.AutoReturn and StandPos then
+        local r    = StandPos - pp
+        local flat = Vector3.new(r.X, 0, r.Z)
+        if flat.Magnitude > 2 then
+            Lunge.VectorVelocity = flat.Unit * clamp(flat.Magnitude * 3, 0, 30)
+        else
+            Lunge.VectorVelocity = Vector3.zero
+        end
+    else
+        Lunge.VectorVelocity = Vector3.zero
+    end
+end)
