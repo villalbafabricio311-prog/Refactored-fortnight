@@ -1,0 +1,9 @@
+section("GOALKEEPER")
+
+makeToggle("Goalkeeper", C.GK, function(v)
+    C.GK = v
+    if v then refreshStand() end
+    applySize()
+end)
+
+makeToggle("Auto Dive", C.AutoDive, function(v)
