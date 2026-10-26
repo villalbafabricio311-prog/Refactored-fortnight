@@ -1,0 +1,7 @@
+local function applySize()
+    if not HRP or not OrigSize or not HRP.Parent then return end
+    local s = 1
+    if C.Reach then s = s + (C.ReachAmount / 20) end
+    if C.GK    then s = s + (C.GrabReach  / 20) end
+    HRP.Size = Vector3.new(OrigSize.X * s, OrigSize.Y, OrigSize.Z * s)
+end
