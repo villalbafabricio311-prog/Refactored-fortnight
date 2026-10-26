@@ -1,0 +1,28 @@
+local function findGoal()
+    if not HRP then return nil end
+    local best, bestD
+    for _, o in ipairs(workspace:GetDescendants()) do
+        if o:IsA("BasePart") and o.Name:lower():find("goal") then
+            local d = (o.Position - HRP.Position).Magnitude
+            if not bestD or d < bestD then best, bestD = o, d end
+        end
+    end
+    return best
+end
+
+function refreshStand()
+    if not HRP or not HRP.Parent then return end
+    MyGoal = findGoal()
+    if MyGoal then
+        local dir = Vector3.new(-MyGoal.Position.X, 0, -MyGoal.Position.Z)
+        if dir.Magnitude < 1 then dir = Vector3.new(0, 0, 1) end
+        dir = dir.Unit
+        StandPos = Vector3.new(
+            MyGoal.Position.X + dir.X * 5,
+            HRP.Position.Y,
+            MyGoal.Position.Z + dir.Z * 5
+        )
+    else
+        StandPos = HRP.Position
+    end
+end
